@@ -105,28 +105,29 @@ jobs:
       - run: npm ci
       - name: npm audit (high+)
         run: npm run security:audit
-      - name: Cache OWASP Dependency-Check data
+      - name: Cache OWASP Dependency-Check DB
         uses: actions/cache@v4
         with:
-          path: ~/dependency-check-data
-          key: dependency-check-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            dependency-check-${{ runner.os }}-
+          path: reports
+          key: owasp-dc-reports-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: OWASP Dependency-Check
         uses: dependency-check/Dependency-Check_Action@main
+        env:
+          JAVA_OPTS: "-Xmx4g"
         with:
           project: sleekflow-todo
-          path: .
-          format: HTML
-          out: reports
+          path: "."
+          format: "HTML"
+          out: "reports"
           args: >
-            --nvdApiDelay 3000
-            --data /github/home/dependency-check-data
-            --suppression dependency-check-suppressions.xml
             --failOnCVSS 7
-            --nodeAuditSkipDevDependencies
-            --disableYarnAudit
-            --disablePnpmAudit
+            --suppression dependency-check-suppressions.xml
+            --exclude "**/node_modules/**"
+            --exclude "**/.next/**"
+            --exclude "**/.git/**"
+            --exclude "**/docker-data/**"
+            --exclude "**/reports/**"
+            --nodePackageSkipDevDependencies
       - name: Upload OWASP report
         if: always()
         uses: actions/upload-artifact@v4

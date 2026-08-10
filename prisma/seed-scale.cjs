@@ -2,6 +2,7 @@
  * Shared scale-load helpers for prisma/seed.ts and docker/entrypoint.sh.
  * Kept as CommonJS so the production entrypoint can require() it without tsx.
  */
+/* eslint-disable @typescript-eslint/no-require-imports */
 
 const { addDays } = require("date-fns");
 
