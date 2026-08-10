@@ -21,8 +21,7 @@ flowchart LR
 
 ## Runtime packaging
 
-- Local: `npm run dev` + Compose `postgres` on host port `5433`.
-- Interview demo: `docker compose up --build` → `app` + `postgres` at **http://localhost:3005** (entrypoint migrates + seeds when empty).
+`docker compose up --build` starts two containers, `app` and `postgres`, serving **http://localhost:3005**. The entrypoint waits for the database, applies migrations, and seeds only when the table is empty.
 
 ## Visibility / ownership
 
@@ -36,7 +35,7 @@ sequenceDiagram
     participant Client
     participant API as RouteHandler
     participant Svc as TodoService
-    database DB as PostgreSQL
+    participant DB as PostgreSQL
 
     Client->>API: PATCH /api/todos/:id status=COMPLETED version=N
     API->>Svc: updateTodo()

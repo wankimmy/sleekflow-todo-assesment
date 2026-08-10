@@ -50,13 +50,12 @@ SleekFlow Software Engineer Interview Project — 1–2 page decision record (de
 
 ## What I would do differently / with more time
 
-1. Cursor-first UI pagination (today the Tasks UI still uses offset `page`; API already supports keyset).
+1. Cursor-first UI pagination (the Tasks UI still uses offset `page`; the API already supports keyset).
 2. Stronger auth hardening (CSRF strategy for cookie mutations, rate limits, email verification).
 3. True push fan-out (LISTEN/NOTIFY or Redis) instead of SSE polling the outbox.
-4. Force-directed or layered graph layout; dependency cycle visualization in the graph UI.
-5. Broader E2E matrix (bulk partial failure, auth ownership forbidden paths, SSE assertion).
+4. Force-directed or layered graph layout, plus cycle visualisation in the graph UI.
+5. Broader E2E matrix (bulk partial failure, forbidden ownership paths, SSE assertions).
 6. Tighter EXPLAIN budgets with baseline snapshots committed to the repo.
-7. Push a clean GitHub history with tagged demo commit before the live interview.
 
 ## Extra features kept for demo value
 
