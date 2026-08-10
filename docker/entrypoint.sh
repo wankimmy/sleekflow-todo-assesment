@@ -1,0 +1,111 @@
+#!/bin/sh
+set -eu
+
+echo "Waiting for database…"
+retries=60
+until node -e "const {Pool}=require('pg'); const p=new Pool({connectionString:process.env.DATABASE_URL}); p.query('SELECT 1').then(()=>{p.end(); process.exit(0)}).catch(()=>process.exit(1))" 2>/dev/null; do
+  retries=$((retries - 1))
+  if [ "$retries" -le 0 ]; then
+    echo "Database did not become ready in time"
+    exit 1
+  fi
+  sleep 2
+done
+
+echo "Running migrations…"
+npx prisma migrate deploy
+
+echo "Seeding if empty…"
+node <<'NODE'
+const { PrismaClient } = require("@prisma/client");
+const { PrismaPg } = require("@prisma/adapter-pg");
+const { Pool } = require("pg");
+const { addDays } = require("date-fns");
+const { hash } = require("bcryptjs");
+
+(async () => {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
+  try {
+    const count = await prisma.todo.count();
+    if (count > 0) {
+      console.log(`Skipping seed; ${count} todos already present.`);
+      return;
+    }
+
+    const passwordHash = await hash("demo1234", 10);
+    const alice = await prisma.user.upsert({
+      where: { email: "alice@example.com" },
+      update: {},
+      create: {
+        email: "alice@example.com",
+        name: "Alice Demo",
+        passwordHash,
+      },
+    });
+    await prisma.user.upsert({
+      where: { email: "bob@example.com" },
+      update: {},
+      create: {
+        email: "bob@example.com",
+        name: "Bob Demo",
+        passwordHash,
+      },
+    });
+
+    const prerequisite = await prisma.todo.create({
+      data: {
+        name: "Prepare interview notes",
+        description:
+          "Outline architecture, ambiguity resolutions, and demo talking points for the SleekFlow assessment.",
+        dueDate: addDays(new Date(), 1),
+        status: "IN_PROGRESS",
+        priority: "HIGH",
+        isRecurring: false,
+        ownerId: null,
+      },
+    });
+
+    await prisma.todo.create({
+      data: {
+        name: "Weekly project status check-in",
+        description:
+          "Review open tasks, update priorities, and capture blockers. Completing this creates the next weekly occurrence.",
+        dueDate: addDays(new Date(), 2),
+        status: "NOT_STARTED",
+        priority: "MEDIUM",
+        isRecurring: true,
+        recurrenceFrequency: "WEEKLY",
+        recurrenceInterval: 1,
+        recurrenceUnit: "WEEKS",
+        ownerId: null,
+        dependsOn: {
+          create: [{ dependsOnTodoId: prerequisite.id }],
+        },
+      },
+    });
+
+    await prisma.todo.create({
+      data: {
+        name: "Alice private follow-up",
+        description: "Owned todo visible when Alice is signed in.",
+        dueDate: addDays(new Date(), 3),
+        status: "NOT_STARTED",
+        priority: "LOW",
+        ownerId: alice.id,
+      },
+    });
+
+    console.log("Seeded shared todos + Alice-owned todo; demo users alice/bob (demo1234).");
+  } finally {
+    await prisma.$disconnect();
+    await pool.end();
+  }
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
+NODE
+
+echo "Starting Next.js…"
+exec node server.js

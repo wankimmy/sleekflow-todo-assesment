@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TodoStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum TodoPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+enum RecurrenceUnit {
+  DAYS
+  WEEKS
+  MONTHS
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+  todos        Todo[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Todo {
+  id                   String               @id @default(cuid())
+  name                 String
+  description          String               @default("")
+  dueDate              DateTime
+  status               TodoStatus           @default(NOT_STARTED)
+  priority             TodoPriority         @default(MEDIUM)
+  isRecurring          Boolean              @default(false)
+  recurrenceFrequency  RecurrenceFrequency?
+  recurrenceInterval   Int?
+  recurrenceUnit       RecurrenceUnit?
+  version              Int                  @default(1)
+  completedAt          DateTime?
+  deletedAt            DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  previousOccurrenceId String?              @unique
+  ownerId              String?
+  previousOccurrence   Todo?                @relation("OccurrenceChain", fields: [previousOccurrenceId], references: [id], onDelete: SetNull)
+  nextOccurrence       Todo?                @relation("OccurrenceChain")
+  owner                User?                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  dependsOn            TodoDependency[]     @relation("DependentTodo")
+  dependedOnBy         TodoDependency[]     @relation("PrerequisiteTodo")
+
+  @@index([deletedAt, status])
+  @@index([deletedAt, priority])
+  @@index([deletedAt, dueDate])
+  @@index([deletedAt, name])
+  @@index([dueDate])
+  @@index([ownerId, deletedAt])
+}
+
+model TodoDependency {
+  id              String   @id @default(cuid())
+  todoId          String
+  dependsOnTodoId String
+  createdAt       DateTime @default(now())
+  todo            Todo     @relation("DependentTodo", fields: [todoId], references: [id], onDelete: Cascade)
+  dependsOnTodo   Todo     @relation("PrerequisiteTodo", fields: [dependsOnTodoId], references: [id], onDelete: Cascade)
+
+  @@unique([todoId, dependsOnTodoId])
+  @@index([dependsOnTodoId])
+}
+
+model OutboxEvent {
+  id        BigInt   @id @default(autoincrement())
+  type      String
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

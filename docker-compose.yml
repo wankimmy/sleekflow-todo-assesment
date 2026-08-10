@@ -1,0 +1,69 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sleekflow-todo-db
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: sleekflow
+      POSTGRES_PASSWORD: sleekflow
+      POSTGRES_DB: sleekflow_todo
+    volumes:
+      # Bind mount so DB files sync to the local project folder
+      - ./docker-data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sleekflow -d sleekflow_todo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres-test:
+    profiles: ["test"]
+    image: postgres:16-alpine
+    container_name: sleekflow-todo-db-test
+    restart: unless-stopped
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: sleekflow
+      POSTGRES_PASSWORD: sleekflow
+      POSTGRES_DB: sleekflow_todo_test
+    volumes:
+      - ./docker-data/postgres-test:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sleekflow -d sleekflow_todo_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sleekflow-todo-app
+    restart: unless-stopped
+    ports:
+      - "3005:3000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      # Explicit in-compose defaults (not ${DATABASE_URL}) so a host shell DATABASE_URL
+      # for local Prisma/tests cannot break the app container.
+      DATABASE_URL: postgresql://sleekflow:sleekflow@postgres:5432/sleekflow_todo?schema=public
+      NEXT_PUBLIC_APP_URL: http://localhost:3005
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1:3000/api/dashboard >/dev/null || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
