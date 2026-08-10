@@ -19,6 +19,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+      - run: npx prisma generate
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test:unit
@@ -105,7 +106,7 @@ jobs:
       - run: npm ci
       - name: npm audit (high+)
         run: npm run security:audit
-      - name: Cache OWASP Dependency-Check DB
+      - name: Cache OWASP Dependency-Check reports
         uses: actions/cache@v4
         with:
           path: reports
@@ -113,7 +114,8 @@ jobs:
       - name: OWASP Dependency-Check
         uses: dependency-check/Dependency-Check_Action@main
         env:
-          JAVA_OPTS: "-Xmx4g"
+          # Required by Dependency-Check_Action when JAVA_HOME was altered by other actions.
+          JAVA_HOME: /opt/jdk
         with:
           project: sleekflow-todo
           path: "."
@@ -127,7 +129,6 @@ jobs:
             --exclude "**/.git/**"
             --exclude "**/docker-data/**"
             --exclude "**/reports/**"
-            --nodePackageSkipDevDependencies
       - name: Upload OWASP report
         if: always()
         uses: actions/upload-artifact@v4
