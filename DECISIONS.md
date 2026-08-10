@@ -40,7 +40,7 @@ SleekFlow Software Engineer Interview Project — 1–2 page decision record (de
 | Custom SVG dependency graph | Interactive deps without React Flow weight | Simple grid layout, not force-directed |
 | Docker Compose `app`+`postgres` | One-command interview demo with 10k+ seeded todos | First boot slower while bulk-seeding; host port `3005` |
 | Scalar over Swagger UI | Modern reference UI + built-in try-it client; drops React 19 peer warnings | Less ubiquitous than Swagger; weaker legacy OAuth-flow UI |
-| CI: unit / feature / performance / security | Clear independent gates: Playwright, scale budgets, npm audit, Trivy, OWASP Dependency-Check | Dependency-Check Action’s custom image was flaky on GHA, so CI runs the official `owasp/dependency-check` image instead |
+| CI: unit / feature / performance / security | Clear independent gates: Playwright, scale budgets, npm audit, Trivy OWASP-aligned SCA (NVD/GHSA) | Official Dependency-Check GitHub Action image builds were failing on runners; Trivy covers the same SCA goal more reliably |
 
 ## What I chose NOT to build (and why)
 

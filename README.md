@@ -114,7 +114,7 @@ The brief is intentionally over-scoped, so I built the hard correctness core fir
 | **unit** | lint, typecheck, pure unit tests |
 | **feature** | integration tests, production build, Playwright e2e |
 | **performance** | `EXPLAIN ANALYZE` query budgets + `verify:scale` against 10k rows |
-| **security** | `npm audit --audit-level=high` + Trivy HIGH/CRITICAL + OWASP Dependency-Check on the lockfile |
+| **security** | `npm audit --audit-level=high` + Trivy filesystem SCA (NVD/GHSA, fail on HIGH/CRITICAL) |
 
 After `docker compose up --build`, host-side performance against the demo DB:
 
