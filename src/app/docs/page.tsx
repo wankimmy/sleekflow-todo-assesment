@@ -13,7 +13,7 @@ export default function DocsPage() {
           also available at <code>/api/openapi</code>.
         </p>
       </div>
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="h-[calc(100vh-12rem)] min-h-[75vh] overflow-hidden rounded-xl border border-slate-200 bg-white">
         <ApiReferenceReact
           configuration={{
             url: "/api/openapi",

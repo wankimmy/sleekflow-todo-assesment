@@ -109,7 +109,7 @@ const { ensureScaleLoadTodos, SCALE_TARGET } = require("./prisma/seed-scale.cjs"
     const scale = await ensureScaleLoadTodos(prisma);
     const total = await prisma.todo.count();
     console.log(
-      `Demo ready: ${total} todos total; scale rows ${scale.total}/${SCALE_TARGET} (inserted ${scale.inserted} this boot).`,
+      `Demo ready: ${total} todos total; scale rows ${scale.total}/${SCALE_TARGET} (inserted ${scale.inserted}, repaired due dates ${scale.repaired} this boot).`,
     );
   } finally {
     await prisma.$disconnect();
