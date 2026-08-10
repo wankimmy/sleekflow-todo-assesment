@@ -5,10 +5,27 @@ on:
     branches: [main, master]
   pull_request:
 
-jobs:
-  verify:
-    runs-on: ubuntu-latest
+env:
+  NODE_VERSION: "22"
 
+jobs:
+  unit:
+    name: unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:unit
+
+  feature:
+    name: feature
+    runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:16-alpine
@@ -23,23 +40,97 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-
     env:
       DATABASE_URL: postgresql://sleekflow:sleekflow@localhost:5432/sleekflow_todo_test?schema=public
       TEST_DATABASE_URL: postgresql://sleekflow:sleekflow@localhost:5432/sleekflow_todo_test?schema=public
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
-
+      NEXT_PUBLIC_APP_URL: http://localhost:3010
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
       - run: npx prisma generate
       - run: npx prisma migrate deploy
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run verify:query-budgets
+      - run: npm run test:integration
       - run: npm run build
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+      - name: End-to-end feature tests
+        run: npm run test:e2e
+
+  performance:
+    name: performance
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: sleekflow
+          POSTGRES_PASSWORD: sleekflow
+          POSTGRES_DB: sleekflow_todo_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sleekflow -d sleekflow_todo_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://sleekflow:sleekflow@localhost:5432/sleekflow_todo_test?schema=public
+      TEST_DATABASE_URL: postgresql://sleekflow:sleekflow@localhost:5432/sleekflow_todo_test?schema=public
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: npm run verify:query-budgets
+      - run: npm run verify:scale
+
+  security:
+    name: security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: npm audit (high+)
+        run: npm run security:audit
+      - name: Cache OWASP Dependency-Check data
+        uses: actions/cache@v4
+        with:
+          path: ~/dependency-check-data
+          key: dependency-check-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            dependency-check-${{ runner.os }}-
+      - name: OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: sleekflow-todo
+          path: .
+          format: HTML
+          out: reports
+          args: >
+            --nvdApiDelay 3000
+            --data /github/home/dependency-check-data
+            --suppression dependency-check-suppressions.xml
+            --failOnCVSS 7
+            --nodeAuditSkipDevDependencies
+            --disableYarnAudit
+            --disablePnpmAudit
+      - name: Upload OWASP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-dependency-check
+          path: reports
+          if-no-files-found: ignore

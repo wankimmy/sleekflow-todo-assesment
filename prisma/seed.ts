@@ -1,3 +1,4 @@
+import { createRequire } from "module";
 import { config } from "dotenv";
 import {
   PrismaClient,
@@ -8,6 +9,16 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { hash } from "bcryptjs";
 import { addDays } from "date-fns";
 import { Pool } from "pg";
+
+const require = createRequire(import.meta.url);
+const { ensureScaleLoadTodos, SCALE_TARGET } = require("./seed-scale.cjs") as {
+  ensureScaleLoadTodos: (prisma: PrismaClient) => Promise<{
+    existing: number;
+    inserted: number;
+    total: number;
+  }>;
+  SCALE_TARGET: number;
+};
 
 config({ path: ".env" });
 config({ path: ".env.local", override: true });
@@ -82,7 +93,8 @@ async function main() {
     await prisma.todo.create({
       data: {
         name: "Alice private follow-up",
-        description: "Owned todo visible only when Alice is signed in (plus shared board).",
+        description:
+          "Owned todo visible only when Alice is signed in (plus shared board).",
         dueDate: addDays(new Date(), 3),
         status: TodoStatus.NOT_STARTED,
         priority: TodoPriority.LOW,
@@ -90,8 +102,10 @@ async function main() {
       },
     });
 
+    const scale = await ensureScaleLoadTodos(prisma);
+
     console.log(
-      `Seeded 2 shared todos + 1 Alice-owned todo; users ${alice.email} / ${bob.email} (password: demo1234).`,
+      `Seeded 2 shared todos + 1 Alice-owned todo + ${scale.total} scale rows (target ${SCALE_TARGET}); users ${alice.email} / ${bob.email} (password: demo1234).`,
     );
   } finally {
     await prisma.$disconnect();

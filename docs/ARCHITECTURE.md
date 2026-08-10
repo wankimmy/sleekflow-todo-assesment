@@ -21,7 +21,7 @@ flowchart LR
 
 ## Runtime packaging
 
-`docker compose up --build` starts two containers, `app` and `postgres`, serving **http://localhost:3005**. The entrypoint waits for the database, applies migrations, and seeds only when the table is empty.
+`docker compose up --build` starts two containers, `app` and `postgres`, serving **http://localhost:3005**. The entrypoint waits for the database, applies migrations, ensures the three narrative demo todos exist, and tops up `Scale load #` rows to 10,000 when short.
 
 ## Visibility / ownership
 

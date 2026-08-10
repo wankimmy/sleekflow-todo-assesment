@@ -17,7 +17,7 @@ SleekFlow Software Engineer Interview Project — 1–2 page decision record (de
    Interpreted as a **shared board** (anonymous-writable) plus optimistic concurrency (`version` → `409`), transactions, and idempotent next-occurrence creation (`previousOccurrenceId` unique). Auth was layered later without removing the shared-board concurrency story.
 
 5. **“10,000+ items without degrading UX”**  
-   SQL pagination (offset + keyset `cursor`), ranked sorts for priority/status/dependency, dashboard `groupBy`/counts, date-bounded calendar. Verified with `npm run verify:scale` and `npm run verify:query-budgets`—not by shipping 10k rows in the demo seed.
+   Docker seed permanently inserts 10,000 shared `Scale load #` rows plus 3 narrative todos. Lists use SQL pagination (offset + keyset `cursor`), ranked sorts, dashboard aggregates, and a date-bounded calendar. Proven in CI by `npm run verify:scale` (timed repository queries with soft ms ceilings) and `npm run verify:query-budgets` (`EXPLAIN ANALYZE`).
 
 6. **Blocked / unblocked**  
    Blocked when any non-deleted dependency is not `COMPLETED`.
@@ -38,8 +38,9 @@ SleekFlow Software Engineer Interview Project — 1–2 page decision record (de
 | `Todo.ownerId` ON DELETE CASCADE | Deleting a user removes private todos instead of promoting them to the shared board (`ownerId IS NULL`) | Shared-board todos are unaffected (already null owner) |
 | Outbox + SSE | Realtime tab sync without WebSocket infra | ~1.5s poll latency; outbox pruned after 1 day |
 | Custom SVG dependency graph | Interactive deps without React Flow weight | Simple grid layout, not force-directed |
-| Docker Compose `app`+`postgres` | One-command interview demo | Host port `3005` to avoid local `:3000` clashes |
+| Docker Compose `app`+`postgres` | One-command interview demo with 10k+ seeded todos | First boot slower while bulk-seeding; host port `3005` |
 | Scalar over Swagger UI | Modern reference UI + built-in try-it client; drops React 19 peer warnings | Less ubiquitous than Swagger; weaker legacy OAuth-flow UI |
+| CI: unit / feature / performance / security | Clear independent gates; includes Playwright, scale budgets, npm audit, OWASP Dependency-Check | Longer wall-clock on cold NVD cache |
 
 ## What I chose NOT to build (and why)
 
@@ -59,7 +60,7 @@ SleekFlow Software Engineer Interview Project — 1–2 page decision record (de
 
 ## Extra features kept for demo value
 
-Search, restore, dashboard/charts, calendar, table+kanban, Scalar API docs, Docker+CI, auth/shared board, bulk ops, dependency graph, cursor API, outbox/SSE, query budgets.
+Search, restore, dashboard/charts, calendar, table+kanban, Scalar API docs, Docker+CI (unit/feature/performance/security), auth/shared board, bulk ops, dependency graph, cursor API, outbox/SSE, permanent 10k seed, query budgets.
 
 ## AI tooling note
 

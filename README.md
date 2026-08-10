@@ -14,7 +14,7 @@ docker compose up --build
 
 Then open **[http://localhost:3005](http://localhost:3005)**.
 
-That one command starts PostgreSQL and the app. The app waits for the database, applies migrations, and seeds demo data on first run. Port `3005` is used so the demo cannot clash with anything already running on `3000`. Stop it with `Ctrl+C`, or `docker compose down`.
+That one command starts PostgreSQL and the app. The app waits for the database, applies migrations, and seeds **10,003+ todos** on first run (3 narrative demo todos plus 10,000 `Scale load #` rows). The first boot takes longer while the bulk seed runs; later restarts skip it when the count is already full. Port `3005` avoids clashing with anything on `3000`. Stop with `Ctrl+C`, or `docker compose down`.
 
 ### Demo data
 
@@ -23,13 +23,14 @@ That one command starts PostgreSQL and the app. The app waits for the database, 
 | Prepare interview notes | Shared, in progress, high priority |
 | Weekly project status check-in | Shared, recurring weekly, blocked until the note above is completed |
 | Alice private follow-up | Private, visible only after logging in as Alice |
+| `Scale load #00000` … `#09999` | 10,000 shared-board rows for the 10k+ requirement |
 
 Logins: `alice@example.com` or `bob@example.com`, password `demo1234`.
 
 ## Two-minute tour
 
-1. **Dashboard** — KPIs, status and priority charts, dependency health, upcoming tasks.
-2. **Tasks** — move the weekly check-in to In Progress and it is rejected with `409`, because its prerequisite is not complete.
+1. **Dashboard** — KPIs show ~10k total; status and priority charts, dependency health, upcoming tasks.
+2. **Tasks** — still pages 25 rows; move the weekly check-in to In Progress and it is rejected with `409`.
 3. Complete *Prepare interview notes*, then complete the weekly task. Next week's occurrence is created automatically.
 4. Log in as Alice to see her private todo alongside the shared board. Open a second tab and edit something to watch both refresh live.
 5. **Graph** — pan and zoom the dependency graph, click a node to jump to that task.
@@ -84,31 +85,42 @@ curl -X POST http://localhost:3005/api/todos \
 | Functional web UI | Dashboard, table, kanban, calendar, trash, graph |
 | Safe concurrent access | Transactions plus `version` optimistic locking |
 | Deleted data is never lost | Soft delete with `deletedAt`, plus Trash and restore |
-| 10,000+ items without UX collapse | SQL pagination and keyset cursors, aggregate queries, verified by scripts |
+| 10,000+ items without UX collapse | Seeded in Docker; SQL pagination/keyset; `verify:scale` + query budgets |
 | Auth and a shared board | Cookie sessions; `ownerId = null` means shared |
 | Live multi-tab refresh | Transactional outbox plus server-sent events |
 | Bulk operations | `POST /api/todos/bulk` with per-item errors |
 | Interactive dependency graph | Custom SVG with pan, zoom, and click-through |
-| Tests | Unit, integration, and end-to-end |
+| Tests | Unit, feature (integration + e2e), performance, security |
 | API documentation | OpenAPI spec rendered by Scalar |
 
 What was deliberately left out, and why, is in [`DECISIONS.md`](./DECISIONS.md).
 
 ## How I approached it
 
-The brief is intentionally over-scoped, so I built the hard correctness core first: recurrence, dependencies, concurrency, soft delete, and queries that stay fast at 10k rows. Everything that could be demonstrated by a chart or an error message instead of new infrastructure was deferred until that core was solid and tested.
+The brief is intentionally over-scoped, so I built the hard correctness core first: recurrence, dependencies, concurrency, soft delete, and queries that stay fast at 10k rows. The Docker demo seeds those 10k rows permanently so the requirement is visible in the UI, not only in a throwaway script.
 
-The deferred items were then added at interview depth rather than production depth:
-
-- **Auth** is a cookie session with bcrypt. `ownerId = null` keeps the shared board anonymously writable, so the original concurrency demo still works, while signed-in users additionally see and own private todos.
-- **Live updates** use a transactional outbox instead of WebSockets. Each mutation writes its event in the same transaction as the data, so a committed change can never lose its event. Clients only invalidate query caches, so there is no second source of truth. The trade-off is roughly 1.5 seconds of latency.
-- **Bulk actions** reuse the single-item service methods, so blocking, versioning, and ownership rules cannot drift. Partial failures come back per id.
-- **The dependency graph** is hand-rolled SVG rather than React Flow, which keeps the bundle small at the cost of a simple grid layout.
-- **Keyset pagination** exists alongside offset pages, including for ranked priority, status, and dependency sorts. That is the path for very large lists without a deep `OFFSET`.
+- **Auth** is a cookie session with bcrypt. `ownerId = null` keeps the shared board anonymously writable.
+- **Live updates** use a transactional outbox instead of WebSockets (~1.5s latency trade-off).
+- **Bulk actions** reuse single-item service methods so rules cannot drift.
+- **The dependency graph** is hand-rolled SVG rather than React Flow.
+- **Keyset pagination** exists alongside offset pages for large lists.
 
 ## Verification
 
-Every push runs lint, type checking, unit and integration tests, `EXPLAIN ANALYZE` query budgets, and a production build in [GitHub Actions](./.github/workflows/ci.yml). Playwright covers the demo flow plus the version-conflict and dependency-cycle edge cases. A scale script inserts 10,000 rows, times the real list and dashboard queries, then cleans up after itself.
+[GitHub Actions](./.github/workflows/ci.yml) runs four parallel gates:
+
+| Gate | What it runs |
+|---|---|
+| **unit** | lint, typecheck, pure unit tests |
+| **feature** | integration tests, production build, Playwright e2e |
+| **performance** | `EXPLAIN ANALYZE` query budgets + `verify:scale` against 10k rows |
+| **security** | `npm audit --audit-level=high` + OWASP Dependency-Check (fail on CVSS ≥ 7) |
+
+After `docker compose up --build`, host-side performance against the demo DB:
+
+```bash
+npm run verify:scale
+```
 
 ## Layout
 
@@ -116,7 +128,7 @@ Every push runs lint, type checking, unit and integration tests, `EXPLAIN ANALYZ
 src/app/          pages and API route handlers
 src/features/     auth and todo domain: schemas, rules, repository, service, UI
 src/lib/          Prisma client, API helpers, OpenAPI document
-prisma/           schema, migrations, seed
+prisma/           schema, migrations, seed (+ 10k scale helper)
 tests/            unit, integration, end-to-end
 scripts/          scale and query-budget verification
 docs/             architecture notes

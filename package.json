@@ -22,9 +22,11 @@
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
+    "test:feature": "vitest run tests/integration",
     "test:e2e": "playwright test",
     "verify:scale": "tsx scripts/verify-scale.ts",
     "verify:query-budgets": "tsx scripts/verify-query-budgets.ts",
+    "security:audit": "npm audit --audit-level=high",
     "setup": "npm run db:up && npm run db:up:test && npx wait-on tcp:5433 tcp:5434 && npm run db:migrate && npm run db:seed"
   },
   "prisma": {
